@@ -1,1 +1,122 @@
+# DNS Cheat Sheet (GitHub-Ready)
+
+> **DNS (Domain Name System)** = the Internet’s phonebook. It translates names (e.g., `www.example.com`) to IPs (e.g., `93.184.216.34`).
+
+---
+
+## 🔑 Core Components
+
+- **Stub Resolver** – Your OS piece that apps call (`getaddrinfo`). Sends queries to a local/recursive resolver.
+- **Recursive Resolver** – ISP/enterprise/public resolver (e.g., **1.1.1.1**, **8.8.8.8**) that walks the hierarchy and **caches** results.
+- **Authoritative Nameserver** – Source of truth for a zone (e.g., `example.com`). Holds **A/AAAA/CNAME/MX/TXT/…** records.
+- **Root Servers** – The DNS root (.) — point to TLD servers.
+- **TLD Servers** – `.com`, `.org`, `.net`, country TLDs, etc. Point to a domain’s authoritative servers.
+
+---
+
+## 🧭 How Resolution Works (Happy Path)
+
+1. App asks **stub resolver**: “A record for `www.example.com`?”  
+2. **Recursive** checks **cache** → if **hit**, return immediately.  
+3. **Cache miss** → Recursive asks:  
+   1) a **Root** server → “Who serves `.com`?”  
+   2) a **.com TLD** server → “Who’s authoritative for `example.com`?”  
+   3) the **Authoritative** server → “A for `www.example.com`?”  
+4. Authoritative replies with **IP** and **TTL** (time to live).  
+5. Recursive **caches** for TTL and returns answer to client.
+
+> **Caching** (including **negative caching** for NXDOMAIN) is why DNS changes take time to propagate.
+
+---
+
+## 🧾 Common Record Types
+
+- **A / AAAA** – Name → IPv4 / IPv6.  
+- **CNAME** – Alias to another name (must not coexist with other data).  
+- **NS** – Delegation: which nameservers are authoritative for the zone.  
+- **MX** – Mail exchangers for a domain.  
+- **TXT** – Free text (SPF, DKIM, verification).  
+- **SRV** – Service locator (`_service._proto.name`).  
+- **SOA** – Zone metadata (serial, default timers).
+
+---
+
+## 🆚 Authoritative vs Recursive
+
+- **Authoritative**: answers only for zones it hosts; **no recursion**.  
+- **Recursive**: finds answers for clients and **caches**; validates DNSSEC if enabled.
+
+---
+
+## 🔐 Security & Privacy (Quick)
+
+- **DNSSEC** – Cryptographic signatures for records → authenticity (prevents cache poisoning). Look for `ad` flag in answers.  
+- **DoT/DoH** – DNS over TLS / HTTPS → encrypts queries between client and recursive (privacy on-path).
+
+---
+
+## 🧰 Troubleshooting & Gotchas
+
+- **Stale Cache** – Wait for TTL or **flush** caches (client/recursive/CDN).  
+- **Bad Delegation** – NS/glue mismatch → intermittent failures.  
+- **Split-Horizon** – Internal vs external answers by design.  
+- **Firewall** – UDP/TCP **53** blocked or fragmented responses dropped.  
+- **CNAME chains** – Last target must have **A/AAAA**; watch TTLs & loops.  
+- **EDNS/Fragmentation/MTU** – Large DNS responses may need TCP fallback.
+
+---
+
+## 🧪 Useful Commands
+
+```bash
+# Basic lookups
+dig A www.example.com
+dig AAAA www.example.com +short
+dig MX example.com +short
+
+# Ask a specific resolver
+dig @1.1.1.1 www.example.com
+
+# Trace the full path (root -> TLD -> authoritative)
+dig +trace www.example.com
+
+# Show TTLs and DNSSEC validation flag (ad)
+dig www.example.com +ttl +dnssec
+
+# Find authoritative nameservers and zone metadata
+dig NS example.com +short
+dig SOA example.com
+
+# Reverse lookup (PTR)
+dig -x 93.184.216.34 +short
+
+# systemd-resolved (Linux)
+resolvectl status
+sudo resolvectl flush-caches
+
+# macOS flush
+sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+
+# Windows flush
+ipconfig /flushdns
+```
+
+---
+
+## 🧠 Mental Model
+
+- **DNS = phonebook**, **TTL = cache time**, **Recursive = librarian**, **Authoritative = book’s author**.  
+- Change the book? Everyone sees it **after their cached copy expires**.
+
+---
+
+## ✅ Quick Checklist for DNS Issues
+
+- [ ] Is the **record** correct on the authoritative zone?  
+- [ ] Do **NS** at the parent (TLD) match your zone’s **NS** (delegation OK)?  
+- [ ] Are **TTL** values reasonable (not too high during migrations)?  
+- [ ] Does the **recursive** you test use the same view (split-horizon)?  
+- [ ] Any **firewall** filtering UDP/TCP **53** or dropping fragments?  
+- [ ] If using **CNAME**, does the final target have **A/AAAA**?  
+- [ ] For **mail**, do **MX** targets have A/AAAA and correct **SPF/DKIM/DMARC**?
 
