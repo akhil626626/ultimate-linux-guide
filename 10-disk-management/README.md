@@ -120,3 +120,68 @@ swapon /dev/sdX
 ```bash
 swapoff /dev/sdX
 ```
+
+## Additional Notes - When to Use fdisk, mount, or Both
+### Check Available Disks
+Before creating or mounting anything, always check what block devices exist:
+```bash
+lsblk
+```
+### Example output:
+|NAME | MAJ:MIN| RM| SIZE |RO | TYPE| MOUNTPOINT|
+|-----|---------|--|------|---|-----|-----------|
+|sda   |  8:0   | 0 | 100G | 0 | disk|           |
+|├─sda1|   8:1  | 0 |  96G | 0 | part| /         |
+|└─sda2|   8:2  | 0 |  4G  | 0 | part| [SWAP]    |
+|sdb   |   8:16 | 0 |  20G | 0 | disk|           |
+
+`sda` → existing disk (already partitioned)
+
+`sdb` → new disk, no partitions yet
+
+### When to use `fdisk`
+Use `fdisk` when:
+- The disk is brand new and has no partitions
+- You want to create `/dev/sdb1`, `/dev/sdb2`, etc.
+
+Inside `fdisk`:
+1. Press `n` → create a new partition
+2. Press `w` → write changes
+
+Then confirm:
+```bash
+lsblk
+```
+### When to Use `mount`
+Use `mount` when:
+The partition already exists and is formatted
+You just want to make it accessible
+```bash
+sudo mkdir /mnt/mydisk
+sudo mount /dev/sdb1 /mnt/mydisk
+```
+Now your disk is available at `/mnt/mydisk`.
+
+### When to Use fdisk + mount (Full Setup)
+Use `fdisk + mkfs + mount` when:
+The disk is completely new
+You need to partition → format → mount it
+```bash
+# 1. Check available disks
+lsblk
+# 2. Create partition
+sudo fdisk /dev/sdb
+# 3. Format the partition
+sudo mkfs.ext4 /dev/sdb1
+# 4. Mount it
+sudo mkdir /data
+sudo mount /dev/sdb1 /data
+```
+### Quick Reference
+
+| Use Case                     | Command(s)                  |
+|-------------------------------|-----------------------------|
+| View disks and partitions     | `lsblk`                     |
+| Partition a new disk          | `fdisk`                     |
+| Mount an existing partition   | `mount`                     |
+| Full setup (new disk)         | `fdisk + mkfs + mount`      |
